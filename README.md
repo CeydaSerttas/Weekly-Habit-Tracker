@@ -89,8 +89,6 @@ Dates use ISO format (`YYYY-MM-DD`) based on your local timezone. Weeks start on
 * **Export JSON** downloads `weekly-habits.json` with `{ habits, checks }`.
 * **Import JSON** accepts the same shape and replaces current data.
 
-> Tip: keep your exports in a private Git repo to version your progress.
-
 
 ## 🛠 Customization
 
