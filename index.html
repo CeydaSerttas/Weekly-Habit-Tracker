@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Weekly Habit Tracker — Single File App</title>
+<style>
+  :root{ --radius:18px; --shadow:0 16px 50px rgba(0,0,0,.18); --border:1px solid var(--stroke); }
+  body.theme-light{
+    --bg: radial-gradient(1000px 600px at 15% 10%,  #bb59bb 0, transparent 60%),
+          radial-gradient(900px 600px at 85% 90%,  #31deca 0, transparent 60%),
+          linear-gradient(160deg, #c44040, #aa92e3 60%);
+    --card:#ffffffd9; --stroke:#e7e7f2; --text:#1f2430; --muted:#667085; --accent:#7c3aed;
+    --success:#16a34a; --warn:#ef4444; --chip:#f1f5f9; --chipText:#334155;
+  }
+  body.theme-dark{
+    --bg: radial-gradient(1200px 700px at 12% 18%, #033154 0, transparent 55%),
+          radial-gradient(1000px 700px at 82% 88%, #022d4e 0, transparent 55%),
+          linear-gradient(160deg,#011a35, #0f2505 70%);
+    --card:#0f1222cc; --stroke:#252e45; --text:#eef2ff; --muted:#a5adcf; --accent:#a78bfa;
+    --success:#22c55e; --warn:#f87171; --chip:#0b1220; --chipText:#cbd5e1;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; display:grid; place-items:center}
+  .wrap{width:min(1100px,95vw); padding:18px; position:relative}
+
+  header{display:flex; align-items:center; justify-content:space-between; gap:14px; margin:6px 0 16px}
+  h1{margin:0; font-size:clamp(20px,3.6vw,32px); display:flex; gap:10px; align-items:center}
+  .meta{display:flex; gap:10px; align-items:center; color:var(--muted); flex-wrap:wrap}
+  .btn{background:transparent; border:var(--border); color:var(--text); padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer; white-space:nowrap}
+  .btn.primary{background:linear-gradient(180deg, color-mix(in oklab, var(--accent) 80%, white), var(--accent)); color:#fff; border-color:transparent}
+  .btn.ghost{background:var(--chip); color:var(--text); border-color:transparent}
+
+  .card{background:var(--card); backdrop-filter: blur(10px); border:var(--border); box-shadow:var(--shadow); border-radius:var(--radius);}
+
+  .toolbar{display:grid; grid-template-columns: 1fr auto; gap:12px; padding:14px; margin-bottom:16px}
+  .toolbar .left{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .toolbar .right{display:flex; gap:10px; align-items:center}
+  input[type="text"], input[type="date"], input[type="number"], select{background:transparent; border:var(--border); color:var(--text); padding:10px 12px; border-radius:10px; outline:none}
+  input::placeholder{color:var(--muted)}
+
+  .table{padding:12px}
+  .table .head, .row{display:grid; grid-template-columns: 1.2fr repeat(7, 1fr); align-items:center; gap:8px}
+  .table .head{font-weight:800; color:var(--muted); margin-bottom:8px}
+  .cell, .hcell{height:44px; display:flex; align-items:center; justify-content:center}
+  .hcell:first-child, .cell:first-child{justify-content:flex-start}
+  .row{background:var(--chip); color:var(--chipText); border:1px dashed color-mix(in oklab, var(--stroke) 60%, transparent); border-radius:12px; padding:6px 8px; margin-bottom:8px}
+  .row .title{font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px}
+  .row .title input{background:transparent; border:none; outline:none; color:var(--text); font-weight:800; width:100%}
+  .row .title .streak{font-size:11px; color:var(--accent); font-weight:600; padding:2px 6px; background:color-mix(in oklab, var(--accent) 12%, transparent); border-radius:999px}
+  .row .actions{margin-left:auto; display:flex; gap:6px}
+  .iconbtn{background:transparent; border:none; color:var(--muted); cursor:pointer}
+
+  .check{width:32px; height:32px; border-radius:8px; border:1px solid color-mix(in oklab, var(--stroke) 50%, transparent); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s ease}
+  .check.active{background:color-mix(in oklab, var(--success) 22%, transparent); color:var(--text); box-shadow:inset 0 0 0 2px color-mix(in oklab, var(--success) 30%, transparent)}
+  .check:hover{box-shadow:0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent)}
+  .check.today{border:2px solid var(--accent)}
+
+  .foot{display:flex; justify-content:space-between; align-items:center; color:var(--muted); margin-top:8px}
+  .progress{height:10px; background:color-mix(in oklab, var(--stroke) 60%, transparent); border-radius:999px; overflow:hidden}
+  .progress > i{display:block; height:100%; background:linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--success) 60%, var(--accent))); width:0; transition:width 0.3s ease}
+
+  @media(max-width: 768px) {
+    .meta{flex-direction:column; gap:8px}
+    .toolbar{grid-template-columns:1fr; gap:8px}
+    .toolbar .right{justify-content:center}
+    .table .head, .row{grid-template-columns: 1fr repeat(7, 40px)}
+    .check{width:28px; height:28px}
+  }
+</style>
+</head>
+<body class="theme-light">
+  <div class="wrap">
+    <header>
+      <h1>📅 Weekly Habit Tracker <span style="font-weight:400;color:var(--muted)">— Single File</span></h1>
+      <div class="meta">
+        <button id="toggleTheme" class="btn">🌙 Dark / ☀️ Light</button>
+        <button id="prevW" class="btn">← Prev</button>
+        <span id="range" style="min-width:180px;text-align:center"></span>
+        <button id="nextW" class="btn">Next →</button>
+        <button id="exportBtn" class="btn">Export JSON</button>
+        <label class="btn ghost" style="cursor:pointer">Import JSON<input id="importFile" type="file" accept="application/json" style="display:none"></label>
+      </div>
+    </header>
+
+    <div class="card toolbar">
+      <div class="left">
+        <input id="habitTitle" type="text" placeholder="New habit (e.g., 'Read 20min')"/>
+        <button id="addHabit" class="btn primary">Add Habit</button>
+        <button id="clearWeek" class="btn">Clear This Week</button>
+      </div>
+      <div class="right">
+        <span style="color:var(--muted)">Shortcuts: <b>N</b>=New, <b>←/→</b>=Week, <b>Space</b>=Toggle today</span>
+      </div>
+    </div>
+
+    <section class="card table" id="table">
+      <div class="head">
+        <div class="hcell">Habit</div>
+        <div class="hcell" id="h0"></div>
+        <div class="hcell" id="h1"></div>
+        <div class="hcell" id="h2"></div>
+        <div class="hcell" id="h3"></div>
+        <div class="hcell" id="h4"></div>
+        <div class="hcell" id="h5"></div>
+        <div class="hcell" id="h6"></div>
+      </div>
+      <div id="rows"></div>
+      <div class="foot">
+        <span id="summary"></span>
+        <div class="progress" style="width:260px"><i id="pbar"></i></div>
+      </div>
+    </section>
+
+    <div class="foot" style="margin-top:16px">Everything is stored locally (LocalStorage). Single-file, no libraries.</div>
+  </div>
+
+<script>
+(function(){
+  const KEY_H='whabits_v1_habits';
+  const KEY_C='whabits_v1_checks';
+  const $=id=>document.getElementById(id);
+  const els={ title:$('habitTitle'), add:$('addHabit'), rows:$('rows'), range:$('range'), summary:$('summary'), pbar:$('pbar') };
+
+  const tbtn=$('toggleTheme');
+  tbtn.addEventListener('click',()=>{
+    document.body.classList.toggle('theme-dark');
+    document.body.classList.toggle('theme-light');
+    localStorage.setItem('wh_theme',document.body.classList.contains('theme-dark')?'dark':'light');
+  });
+  const savedTheme=localStorage.getItem('wh_theme'); 
+  if(savedTheme){
+    document.body.classList.toggle('theme-dark',savedTheme==='dark');
+    document.body.classList.toggle('theme-light',savedTheme!=='dark');
+  } else {
+    document.body.classList.add('theme-light');
+  }
+
+  let habits = JSON.parse(localStorage.getItem(KEY_H)||'[]');
+  let checks = JSON.parse(localStorage.getItem(KEY_C)||'{}'); 
+  function save(){ 
+    localStorage.setItem(KEY_H, JSON.stringify(habits)); 
+    localStorage.setItem(KEY_C, JSON.stringify(checks)); 
+  }
+
+  let weekOffset=0; 
+  function monday(d){ 
+    const copy=new Date(d); 
+    const day=(copy.getDay()+6)%7; 
+    copy.setDate(copy.getDate()-day); 
+    copy.setHours(0,0,0,0); 
+    return copy; 
+  }
+  function iso(d){ 
+    return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); 
+  }
+  function weekDates(offset){ 
+    const base=new Date(); 
+    base.setDate(base.getDate()+offset*7); 
+    const start=monday(base); 
+    const arr=[]; 
+    for(let i=0;i<7;i++){ 
+      const dd=new Date(start); 
+      dd.setDate(start.getDate()+i); 
+      arr.push(dd); 
+    } 
+    return arr; 
+  }
+
+  const labels=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  function paintHeader(){ 
+    const days=weekDates(weekOffset); 
+    const today = iso(new Date());
+    days.forEach((d,i)=> {
+      const dayStr = iso(d);
+      $('h'+i).textContent = labels[i]+' '+dayStr.slice(5);
+      $('h'+i).style.color = dayStr === today ? 'var(--accent)' : '';
+      $('h'+i).style.fontWeight = dayStr === today ? '800' : '';
+    });
+    const r=iso(days[0])+' — '+iso(days[6]); 
+    els.range.textContent=r; 
+  }
+
+  function getStreak(habitId) {
+    const ch = checks[habitId] || {};
+    const today = new Date();
+    let streak = 0;
+    
+    for(let i = 0; i >= -100; i--) { 
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const key = iso(date);
+      
+      if(ch[key]) {
+        streak++;
+      } else if(i < 0) { 
+        break;
+      }
+    }
+    return streak;
+  }
+
+  function addHabit(){ 
+    const t=els.title.value.trim(); 
+    if(!t) return; 
+    const id=Math.random().toString(36).slice(2,8); 
+    habits.push({id,title:t,created:Date.now()}); 
+    els.title.value=''; 
+    save(); 
+    render(); 
+  }
+  
+  els.add.addEventListener('click', addHabit);
+  
+  els.title.addEventListener('keydown', e => {
+    if(e.key === 'Enter') {
+      e.preventDefault();
+      addHabit();
+    }
+  });
+
+  $('clearWeek').addEventListener('click', ()=>{ 
+    if(!confirm('Clear all checks for this week?')) return;
+    const ds=weekDates(weekOffset).map(iso); 
+    for(const hid in checks){ 
+      ds.forEach(d=> delete checks[hid]?.[d]); 
+    } 
+    save(); 
+    render(); 
+  });
+
+  function rowEl(h){
+    const r=document.createElement('div'); 
+    r.className='row';
+    
+    const title=document.createElement('div'); 
+    title.className='cell title';
+    const input=document.createElement('input'); 
+    input.value=h.title; 
+    input.title='Double-click to edit'; 
+    input.readOnly=true; 
+    input.addEventListener('dblclick',()=>{ 
+      input.readOnly=false; 
+      input.focus(); 
+      input.select();
+    }); 
+    input.addEventListener('blur',()=>{ 
+      input.readOnly=true; 
+      h.title=input.value.trim()||h.title; 
+      save(); 
+    });
+    input.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter') {
+        input.blur();
+      }
+    });
+
+    const streak = getStreak(h.id);
+    const streakEl = document.createElement('span');
+    streakEl.className = 'streak';
+    streakEl.textContent = streak > 0 ? `🔥${streak}` : '';
+    streakEl.style.display = streak > 0 ? 'inline' : 'none';
+
+    const actions=document.createElement('div'); 
+    actions.className='actions';
+    const del=document.createElement('button'); 
+    del.className='iconbtn'; 
+    del.title='Delete habit'; 
+    del.textContent='🗑️'; 
+    del.addEventListener('click',()=>{ 
+      if(!confirm(`Delete "${h.title}"?`)) return;
+      habits=habits.filter(x=>x.id!==h.id); 
+      delete checks[h.id]; 
+      save(); 
+      render(); 
+    });
+    actions.append(del);
+    title.append(input, streakEl, actions);
+    r.append(title);
+
+    const days=weekDates(weekOffset);
+    const ch = checks[h.id] || (checks[h.id]={});
+    const today = iso(new Date());
+    let count=0;
+    
+    days.forEach((d)=>{
+      const c=document.createElement('div'); 
+      c.className='cell';
+      const box=document.createElement('div'); 
+      box.className='check';
+      const key=iso(d); 
+      
+      if(key === today) {
+        box.classList.add('today');
+      }
+      
+      if(ch[key]){ 
+        box.classList.add('active'); 
+        count++; 
+        box.textContent='✓'; 
+      }
+      
+      box.addEventListener('click',()=>{ 
+        ch[key]=!ch[key]; 
+        save(); 
+        render(); 
+      });
+      c.append(box); 
+      r.append(c);
+    });
+
+    return r;
+  }
+
+  function render(){ 
+    paintHeader(); 
+    els.rows.innerHTML='';
+    let total=0, done=0; 
+    
+    habits.forEach(h=>{ 
+      els.rows.appendChild(rowEl(h)); 
+      const ds=weekDates(weekOffset).map(iso); 
+      total+=ds.length; 
+      const ch=checks[h.id]||{}; 
+      ds.forEach(d=>{ 
+        if(ch[d]) done++; 
+      }); 
+    });
+    
+    els.summary.textContent = habits.length? `${done}/${total} checks this week (${Math.round(done/total*100)||0}%)` : 'Add a habit to get started';
+    const pct = total? (done/total*100) : 0; 
+    els.pbar.style.width = pct+'%';
+  }
+
+  document.addEventListener('keydown',(e)=>{
+    if(e.target.tagName === 'INPUT') return;
+    
+    if(e.key==='n' || e.key==='N'){ 
+      e.preventDefault(); 
+      els.title.focus(); 
+    }
+    if(e.key==='ArrowLeft'){ 
+      e.preventDefault();
+      weekOffset--; 
+      render(); 
+    }
+    if(e.key==='ArrowRight'){ 
+      e.preventDefault();
+      weekOffset++; 
+      render(); 
+    }
+    if(e.code==='Space'){ 
+      e.preventDefault(); 
+      if(habits.length){ 
+        const h=habits[habits.length-1]; 
+        const today = iso(new Date());
+        const ch=checks[h.id]||(checks[h.id]={}); 
+        ch[today]=!ch[today]; 
+        save(); 
+        render(); 
+      }
+    }
+  });
+
+  $('prevW').addEventListener('click', ()=>{ weekOffset--; render(); });
+  $('nextW').addEventListener('click', ()=>{ weekOffset++; render(); });
+
+  const exportBtn=document.getElementById('exportBtn'); 
+  const importFile=document.getElementById('importFile');
+  
+  exportBtn.addEventListener('click', ()=>{ 
+    const payload={habits,checks}; 
+    const blob=new Blob([JSON.stringify(payload, null, 2)],{type:'application/json'}); 
+    const a=Object.assign(document.createElement('a'),{
+      href:URL.createObjectURL(blob),
+      download:`weekly-habits-${new Date().toISOString().slice(0,10)}.json`
+    }); 
+    a.click(); 
+    URL.revokeObjectURL(a.href); 
+  });
+  
+  importFile.addEventListener('change', ()=>{ 
+    const f=importFile.files[0]; 
+    if(!f) return; 
+    const r=new FileReader(); 
+    r.onload=()=>{ 
+      try{ 
+        const obj=JSON.parse(r.result||'{}'); 
+        if(obj.habits && obj.checks) {
+          habits=obj.habits||[]; 
+          checks=obj.checks||{}; 
+          save(); 
+          render();
+          alert('Import successful!');
+        } else {
+          alert('Invalid file format');
+        }
+      }catch{ 
+        alert('Import failed - invalid JSON'); 
+      } 
+    }; 
+    r.readAsText(f); 
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
